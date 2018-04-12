@@ -433,7 +433,8 @@ eps_e = 0
 
 a1 = calc_a1(beta)#8.4e10 (I get 8.5e14)
 
-a2 = calc_a2(beta,0.1)  
+f_melt0 = calc_f_melt(f_vol0)
+a2 = calc_a2(beta,f_melt0)  
 
 
 dt = 4.5e7*year
