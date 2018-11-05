@@ -17,7 +17,6 @@ Created on Thu Apr 12 11:15:32 2018
 
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.special import erf
 
 # ----------------------------- Model constants ----------------------------- #
 
@@ -31,7 +30,7 @@ Mm           = 4.06e24        # Mantle mass (kg)
 k_UM         = 4.2            # Upper mantle thermal conductivity (Wm-1K-1)
 k_LM         = 10             # Lower mantle thermal conductivity (Wm-1K-1)
 R            = 6371e3         # Planetary radius (m)
-R_UM         = 410e3          # Radius of upper mantle (m)
+R_UM         = 410e4          # Radius of upper mantle (m)
 R_c          = 3471e3         # Radius of the core(m)
 Ra_c         = 660            # Critical Rayleigh number for thermal convection
 alpha        = 3e-5           # Thermal expansivity of the mantle (K-1)
@@ -97,7 +96,7 @@ def calc_Tdot_mantle(Q_cmb,Q_rad,Q_conv,Q_melt):
 def calc_A_UM(R_UM):
     return 4*np.pi*R_UM**2
 
-A_um = calc_A_UM(R_UM)
+A_um = calc_A_UM(R)
 
 # Convective cooling of the mantle (Eq.(4) and (8))
 def calc_Qconv_mantle(A_um,DeltaT_m,delta_UM,beta,nu_UM):
@@ -176,10 +175,10 @@ def calc_nu_LM(nu_LMvsnu_UM,nu_UM):
     return nu_LMvsnu_UM*nu_UM
 
 
-#------------------------- Stagnant vs. mobile lid -------------------------- #
-
-def Q_conv_SL(Q_conv):
-    return SL_ML*Q_conv
+##------------------------- Stagnant vs. mobile lid -------------------------- #
+#
+#def Q_conv_SL(Q_conv):
+#    return SL_ML*Q_conv
 
 
 #------------------------- Heat loss due to melting-------------------------- #
@@ -243,6 +242,8 @@ plt.plot(z/1000, T_sol,label='$T_{\mathrm{sol}}$')
 plt.legend()
 plt.xlabel('z (km)')
 plt.ylabel('T (K)')
+plt.savefig('2a.eps', format='eps', dpi=1000)
+
 
 # Effective temperature of partial melt (Eq.(17))
 def calc_T_melt(T_UM):      
@@ -277,6 +278,8 @@ plt.ylim([500,2000])
 plt.ylabel('T (K)')
 plt.xlabel('$T_{\mathrm{UM}}$ (K)')
 plt.legend()
+plt.savefig('2b.eps', format='eps', dpi=1000)
+
 
 
 # Nusselt number for convective heat transport
@@ -294,7 +297,7 @@ T_UM = np.linspace(1600,2200,500)
 
 f_vol     = calc_f_vol(T_melt)
 f_melt    = calc_f_melt(f_vol)
-nu_UM     = calc_nu_m(T_UM)
+nu_UM     = calc_nu_m(T_UM)/10.
 delta_UM  = calc_delta_UM(nu_UM,DeltaT_UM)
 Vdot_up   = calc_Vdot_up(A_tot,delta_UM)
 Mdot_melt = calc_Mdot_melt(Vdot_up,f_melt)
@@ -306,7 +309,7 @@ latent_heat   = Mdot_melt*L_melt
 
 
 plt.figure(3)
-plt.plot(T_UM,Q_melt/1e12,label='$Q_{\mathrm{melt}}$')
+plt.plot(T_UM,Q_melt/1e12,label='$Q_{\mathrm{tot}}$')
 plt.plot(T_UM,internal_heat/1e12,label='$Q_{\mathrm{int}}$')
 plt.plot(T_UM,latent_heat/1e12,label='$Q_{\mathrm{lat}}$')
 
@@ -315,6 +318,7 @@ plt.ylim([0.1,1e2])
 plt.ylabel('$Q_{\mathrm{melt}}$ (TW)')
 plt.xlabel('$T_{\mathrm{UM}}$ (K)')
 plt.legend()
+plt.savefig('2c.eps', format='eps', dpi=1000)
 plt.show()
 
 
@@ -427,55 +431,57 @@ def calc_dTm(Q_conv,Q_melt,Ur):
     
     
 
-Ur = 0.67
-beta = 0.33
-eps_e = 0
-
-a1 = calc_a1(beta)#8.4e10 (I get 8.5e14)
-
-f_melt0 = calc_f_melt(f_vol0)
-a2 = calc_a2(beta,f_melt0)  
-
-
-dt = 4.5e7*year
-time_end = 4.5e9
-time_vector=np.linspace(time_end,0,101)
-
-T_m = np.zeros((len(time_vector),1),dtype=np.float32)
-T_m_melt = np.zeros((len(time_vector),1),dtype=np.float32)
-dT_m = np.zeros((len(time_vector),1),dtype=np.float32)
-Q_conv = np.zeros((len(time_vector),1),dtype=np.float32)
-Q_conv_melt = np.zeros((len(time_vector),1),dtype=np.float32)
-Q_melt = np.zeros((len(time_vector),1),dtype=np.float32)
-dT_m_melt = np.zeros((len(time_vector),1),dtype=np.float32)
-nu_mantle = np.zeros((len(time_vector),1),dtype=np.float32)
-nu_UM = np.zeros((len(time_vector),1),dtype=np.float32)
-
-T_m[0] = 2400
-T_m_melt[0] = 2400
-
-for i in range(len(time_vector)):
-    nu_mantle[i] = calc_nu_m(T_m[i])
-    nu_UM[i] = nu_mantle[i]/10.
-    Q_conv[i] = calc_Q_conv_nocore(a1,beta,nu_UM[i],T_m[i])
-    Q_conv_melt[i] = calc_Q_conv_nocore(a1,beta,nu_UM[i],T_m_melt[i])
-    Q_melt[i] = calc_Q_melt_nocore(1,a2,nu_UM[i],T_m_melt[i], beta)
-    dT_m[i] =calc_dTm(Q_conv[i],0,Ur)*-dt
-    dT_m_melt[i] = calc_dTm(Q_conv_melt[i],Q_melt[i],Ur)*-dt
-    if i<len(time_vector)-1:
-        T_m[i+1] = T_m[i] + dT_m [i]
-        T_m_melt[i+1] = T_m_melt[i]+ dT_m_melt[i]
-
-
-plt.plot(time_vector/1e9,T_m,time_vector/1e9,T_m_melt)
-plt.xlim(0,5)
-plt.ylim(0,6000)
-plt.show()
-
-plt.plot(time_vector/1e9,Q_conv/1e12,time_vector/1e9,(Ur*Q_conv)/1e12,time_vector/1e9,Q_conv_melt/1e12,time_vector/1e9,Q_melt/1e12)
-#time_vector/1e9,Q_conv/1e12,time_vector/1e9,(Ur*Q_conv)/1e12,
-plt.semilogy()
-plt.ylim(1,1000)
-plt.xlim(0,5)
-plt.show()
-
+#Ur = 0.67
+#beta = 0.33
+#eps_e = 0
+#
+#a1 = calc_a1(beta)#8.4e10 (I get 8.5e14)
+#
+#f_melt0 = calc_f_melt(f_vol0)
+#a2 = calc_a2(beta,0.1)  
+#
+#
+#dt = 4.5e7*year
+#time_end = 4.5e9
+#time_vector=np.linspace(time_end,0,101)
+#time_vector_rev=np.linspace(0,time_end,101)*year
+#
+#T_m = np.zeros((len(time_vector),1),dtype=np.float32)
+#T_m_melt = np.zeros((len(time_vector),1),dtype=np.float32)
+#dT_m = np.zeros((len(time_vector),1),dtype=np.float32)
+#Q_conv = np.zeros((len(time_vector),1),dtype=np.float32)
+#Q_conv_melt = np.zeros((len(time_vector),1),dtype=np.float32)
+#Q_melt = np.zeros((len(time_vector),1),dtype=np.float32)
+#dT_m_melt = np.zeros((len(time_vector),1),dtype=np.float32)
+#nu_mantle = np.zeros((len(time_vector),1),dtype=np.float32)
+#nu_UM = np.zeros((len(time_vector),1),dtype=np.float32)
+#
+#T_m[0] = 2300
+#T_m_melt[0] = 2300
+#
+#for i in range(len(time_vector)):
+#    nu_mantle[i] = calc_nu_m(T_m[i])
+#    nu_UM[i] = 1e18#nu_mantle[i]/10.
+#    Q_conv[i] = calc_Q_conv_nocore(a1,beta,nu_UM[i],T_m[i])
+#    Q_conv_melt[i] = calc_Q_conv_nocore(a1,beta,nu_UM[i],T_m_melt[i])
+#    Q_melt[i] = calc_Q_melt_nocore(1,a2,nu_UM[i],T_m_melt[i], beta)
+#    dT_m[i] =calc_dTm(Q_conv[i],0,Ur)*-dt
+#    dT_m_melt[i] = calc_dTm(Q_conv_melt[i],Q_melt[i],Ur)*-dt
+#    if i<len(time_vector)-1:
+##        dT_m_melt[i] = calc_dTm(Q_conv_melt[i],Q_melt[i],Ur)*-time_vector_rev[i+1]
+##        dT_m[i] = calc_dTm(Q_conv[i],0,Ur)*-time_vector_rev[i+1]
+#        T_m[i+1] = T_m[i] + dT_m [i]
+#        T_m_melt[i+1] = T_m_melt[i]+ dT_m_melt[i]
+#
+#
+#plt.plot(time_vector/1e9,T_m,time_vector/1e9,T_m_melt)
+#plt.xlim(0,5)
+#plt.ylim(0,6000)
+#plt.show()
+#
+#plt.plot(time_vector/1e9,Q_conv/1e12,time_vector/1e9,(Ur*Q_conv)/1e12,time_vector/1e9,Q_conv_melt/1e12,time_vector/1e9,Q_melt/1e12)
+##time_vector/1e9,Q_conv/1e12,time_vector/1e9,(Ur*Q_conv)/1e12,
+#plt.semilogy()
+#plt.ylim(1,1000)
+#plt.xlim(0,5)
+#plt.show()
